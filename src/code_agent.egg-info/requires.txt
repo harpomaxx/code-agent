@@ -1,0 +1,4 @@
+click>=8.0.0
+ollama>=0.5.1
+pydantic>=2.0.0
+rich>=13.0.0

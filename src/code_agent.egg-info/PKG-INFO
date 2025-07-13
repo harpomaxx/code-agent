@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: code-agent
+Version: 0.1.0
+Summary: A ReAct-based code agent with Ollama integration
+Home-page: UNKNOWN
+License: UNKNOWN
+Platform: UNKNOWN
+Requires-Python: >=3.8
+
+UNKNOWN
+

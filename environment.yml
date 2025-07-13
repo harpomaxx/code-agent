@@ -1,0 +1,14 @@
+name: code-agent-test
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+    - ollama>=0.5.1
+    - click>=8.0.0
+    - pydantic>=2.0.0
+    - rich>=13.0.0
+    - pytest>=7.0.0
+    - pytest-asyncio>=0.21.0
