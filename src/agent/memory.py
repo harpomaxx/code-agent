@@ -31,7 +31,7 @@ class ConversationMemory:
             self.messages = system_messages + recent_messages
     
     def get_messages(self) -> List[Dict[str, str]]:
-        """Get messages in format expected by Ollama."""
+        """Get messages in format expected by OpenAI."""
         return [{"role": m["role"], "content": m["content"]} for m in self.messages]
     
     def get_recent_messages(self, count: int) -> List[Dict[str, str]]:

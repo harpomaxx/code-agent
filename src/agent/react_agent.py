@@ -2,7 +2,7 @@ import json
 import re
 from typing import Dict, List, Optional, Iterator, Callable, Any
 
-from agent.ollama_client import OllamaClient, OllamaClientError
+from agent.openai_client import OpenAIClient, OpenAIClientError
 from agent.task_manager import TaskManager, TaskPlan
 from agent.failure_analyzer import FailureAnalyzer
 from agent.loop_detector import LoopDetector
@@ -22,15 +22,26 @@ class ReActAgent:
     def __init__(
         self,
         model: Optional[str] = None,
-        host: Optional[str] = None,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
         max_iterations: Optional[int] = None,
         progress_callback: Optional[Callable[[str, str], None]] = None,
         enable_conversation_memory: bool = False
     ):
-        self.model = model or config.ollama.default_model
+        self.model = model or config.llm.default_model
         self.base_max_iterations = max_iterations or config.agent.max_iterations
         self.enable_conversation_memory = enable_conversation_memory
-        self.ollama_client = OllamaClient(host=host or config.ollama.host)
+        
+        # Initialize OpenAI client with config or parameters
+        api_key = api_key or config.llm.api_key
+        if not api_key:
+            raise ValueError("API key is required. Set LLM_API_KEY environment variable or pass api_key parameter.")
+        
+        self.openai_client = OpenAIClient(
+            api_key=api_key,
+            base_url=base_url or config.llm.base_url,
+            timeout=config.llm.timeout
+        )
         self.tool_registry = ToolRegistry()
         self.task_manager = TaskManager()
         self.failure_analyzer = FailureAnalyzer()
@@ -132,7 +143,7 @@ class ReActAgent:
         while self.progress_tracker.should_continue(iteration):
             try:
                 # Get response from LLM
-                response = self.ollama_client.chat(
+                response = self.openai_client.chat(
                     model=self.model,
                     messages=messages
                 )
@@ -302,8 +313,8 @@ class ReActAgent:
                 # Increment iteration counter
                 iteration += 1
             
-            except OllamaClientError as e:
-                return f"Error communicating with Ollama: {str(e)}"
+            except OpenAIClientError as e:
+                return f"Error communicating with OpenAI: {str(e)}"
             except Exception as e:
                 return f"Unexpected error: {str(e)}"
         

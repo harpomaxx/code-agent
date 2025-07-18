@@ -3,11 +3,11 @@ from setuptools import setup, find_packages
 setup(
     name="code-agent",
     version="0.1.0",
-    description="A ReAct-based code agent with Ollama integration",
+    description="A ReAct-based code agent with OpenAI integration",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     install_requires=[
-        "ollama>=0.5.1",
+        "openai>=1.0.0",
         "click>=8.0.0",
         "pydantic>=2.0.0",
         "rich>=13.0.0",

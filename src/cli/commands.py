@@ -7,7 +7,7 @@ from rich.live import Live
 from rich.spinner import Spinner
 
 from agent.react_agent import ReActAgent
-from agent.ollama_client import OllamaClient, OllamaClientError
+from agent.openai_client import OpenAIClient, OpenAIClientError
 from config.settings import config
 from llm_logging import initialize_logger
 
@@ -17,15 +17,17 @@ console = Console()
 @click.command("chat")
 @click.option(
     "--model", 
-    default=config.ollama.default_model, 
+    default=config.llm.default_model, 
     help="Model to use for the conversation",
     show_default=True
 )
 @click.option(
-    "--host",
-    default=config.ollama.host,
-    help="Ollama server host",
-    show_default=True
+    "--api-key",
+    help="OpenAI API key (or set LLM_API_KEY environment variable)"
+)
+@click.option(
+    "--base-url",
+    help="Custom base URL for OpenAI-compatible API"
 )
 @click.option(
     "--max-iterations",
@@ -39,7 +41,7 @@ console = Console()
     help="Show detailed progress information",
     default=False
 )
-def chat_command(model, host, max_iterations, verbose):
+def chat_command(model, api_key, base_url, max_iterations, verbose):
     """Start an interactive chat session with the code agent."""
     # Initialize logging
     initialize_logger(
@@ -53,7 +55,8 @@ def chat_command(model, host, max_iterations, verbose):
     console.print(Panel.fit(
         f"[bold green]Code Agent Interactive Chat[/bold green]\n"
         f"Model: {model}\n"
-        f"Host: {host}\n"
+        f"Provider: {config.llm.provider}\n"
+        f"Base URL: {base_url or config.llm.base_url or 'OpenAI API'}\n"
         f"Memory: ✅ Enabled (conversation continuity active)\n\n"
         f"Commands:\n"
         f"• Type your message to chat with the agent\n"
@@ -71,7 +74,8 @@ def chat_command(model, host, max_iterations, verbose):
         
         agent = ReActAgent(
             model=model, 
-            host=host, 
+            api_key=api_key,
+            base_url=base_url, 
             max_iterations=max_iterations,
             progress_callback=chat_progress_callback,
             enable_conversation_memory=True  # Enable memory for chat mode
@@ -122,9 +126,9 @@ def chat_command(model, host, max_iterations, verbose):
                 console.print("\n[yellow]Goodbye![/yellow]")
                 break
     
-    except OllamaClientError as e:
-        console.print(f"[red]Ollama Error: {str(e)}[/red]")
-        console.print("[yellow]Make sure Ollama is running and the model is available.[/yellow]")
+    except OpenAIClientError as e:
+        console.print(f"[red]OpenAI Error: {str(e)}[/red]")
+        console.print("[yellow]Make sure your API key is valid and you have access to the model.[/yellow]")
     except Exception as e:
         console.print(f"[red]Error: {str(e)}[/red]")
 
@@ -133,15 +137,17 @@ def chat_command(model, host, max_iterations, verbose):
 @click.argument("prompt", required=True)
 @click.option(
     "--model", 
-    default=config.ollama.default_model, 
+    default=config.llm.default_model, 
     help="Model to use",
     show_default=True
 )
 @click.option(
-    "--host",
-    default=config.ollama.host,
-    help="Ollama server host",
-    show_default=True
+    "--api-key",
+    help="OpenAI API key (or set LLM_API_KEY environment variable)"
+)
+@click.option(
+    "--base-url",
+    help="Custom base URL for OpenAI-compatible API"
 )
 @click.option(
     "--max-iterations",
@@ -155,7 +161,7 @@ def chat_command(model, host, max_iterations, verbose):
     help="Show detailed progress information",
     default=False
 )
-def ask_command(prompt, model, host, max_iterations, verbose):
+def ask_command(prompt, model, api_key, base_url, max_iterations, verbose):
     """Ask the agent a single question and get a response."""
     # Initialize logging
     initialize_logger(
@@ -206,7 +212,8 @@ def ask_command(prompt, model, host, max_iterations, verbose):
         
         agent = ReActAgent(
             model=model, 
-            host=host, 
+            api_key=api_key,
+            base_url=base_url, 
             max_iterations=max_iterations,
             progress_callback=progress_callback
         )
@@ -283,30 +290,41 @@ def ask_command(prompt, model, host, max_iterations, verbose):
         
         console.print(Panel(response, title="Agent Response", border_style="green"))
     
-    except OllamaClientError as e:
-        console.print(f"[red]Ollama Error: {str(e)}[/red]")
-        console.print("[yellow]Make sure Ollama is running and the model is available.[/yellow]")
+    except OpenAIClientError as e:
+        console.print(f"[red]OpenAI Error: {str(e)}[/red]")
+        console.print("[yellow]Make sure your API key is valid and you have access to the model.[/yellow]")
     except Exception as e:
         console.print(f"[red]Error: {str(e)}[/red]")
 
 
 @click.group("models")
 def models_command():
-    """Manage Ollama models."""
+    """Manage LLM models."""
     pass
 
 
 @models_command.command("list")
 @click.option(
-    "--host",
-    default=config.ollama.host,
-    help="Ollama server host",
-    show_default=True
+    "--api-key",
+    help="OpenAI API key (or set LLM_API_KEY environment variable)"
 )
-def list_models(host):
+@click.option(
+    "--base-url",
+    help="Custom base URL for OpenAI-compatible API"
+)
+def list_models(api_key, base_url):
     """List available models."""
     try:
-        client = OllamaClient(host=host)
+        # Get API key from parameter or config
+        api_key = api_key or config.llm.api_key
+        if not api_key:
+            console.print("[red]API key is required. Set LLM_API_KEY environment variable or use --api-key option.[/red]")
+            return
+        
+        client = OpenAIClient(
+            api_key=api_key,
+            base_url=base_url or config.llm.base_url
+        )
         models = client.list_models()
         
         if not models:
@@ -315,81 +333,30 @@ def list_models(host):
         
         table = Table(title="Available Models")
         table.add_column("Name", style="cyan", no_wrap=True)
-        table.add_column("Size", style="magenta")
-        table.add_column("Modified", style="green")
+        table.add_column("ID", style="magenta")
+        table.add_column("Created", style="green")
         
         for model in models:
-            name = model.get('name', 'Unknown')
-            size = model.get('size', 'Unknown')
-            modified = model.get('modified_at', 'Unknown')
+            name = model.get('name', model.get('id', 'Unknown'))
+            model_id = model.get('id', 'Unknown')
+            created = model.get('created', 'Unknown')
             
-            # Format size if it's a number
-            if isinstance(size, int):
-                size = f"{size / (1024**3):.1f} GB"
+            # Format timestamp if it's a number
+            if isinstance(created, int):
+                from datetime import datetime
+                created = datetime.fromtimestamp(created).strftime('%Y-%m-%d %H:%M:%S')
             
-            table.add_row(name, str(size), str(modified))
+            table.add_row(name, model_id, str(created))
         
         console.print(table)
     
-    except OllamaClientError as e:
-        console.print(f"[red]Ollama Error: {str(e)}[/red]")
+    except OpenAIClientError as e:
+        console.print(f"[red]OpenAI Error: {str(e)}[/red]")
+        console.print("[yellow]Make sure your API key is valid and you have access to the model.[/yellow]")
     except Exception as e:
         console.print(f"[red]Error: {str(e)}[/red]")
 
 
-@models_command.command("pull")
-@click.argument("model_name")
-@click.option(
-    "--host",
-    default=config.ollama.host,
-    help="Ollama server host",
-    show_default=True
-)
-def pull_model(model_name, host):
-    """Pull a model from the registry."""
-    try:
-        client = OllamaClient(host=host)
-        
-        with console.status(f"[bold green]Pulling model {model_name}...", spinner="dots"):
-            success = client.pull_model(model_name)
-        
-        if success:
-            console.print(f"[green]Successfully pulled model: {model_name}[/green]")
-        else:
-            console.print(f"[red]Failed to pull model: {model_name}[/red]")
-    
-    except OllamaClientError as e:
-        console.print(f"[red]Ollama Error: {str(e)}[/red]")
-    except Exception as e:
-        console.print(f"[red]Error: {str(e)}[/red]")
-
-
-@models_command.command("delete")
-@click.argument("model_name")
-@click.option(
-    "--host",
-    default=config.ollama.host,
-    help="Ollama server host",
-    show_default=True
-)
-@click.confirmation_option(prompt="Are you sure you want to delete this model?")
-def delete_model(model_name, host):
-    """Delete a model."""
-    try:
-        client = OllamaClient(host=host)
-        
-        with console.status(f"[bold red]Deleting model {model_name}...", spinner="dots"):
-            success = client.delete_model(model_name)
-        
-        if success:
-            console.print(f"[green]Successfully deleted model: {model_name}[/green]")
-        else:
-            console.print(f"[red]Failed to delete model: {model_name}[/red]")
-    
-    except OllamaClientError as e:
-        console.print(f"[red]Ollama Error: {str(e)}[/red]")
-    except Exception as e:
-        console.print(f"[red]Error: {str(e)}[/red]")
 
 
 @click.group("tools")
@@ -402,8 +369,11 @@ def tools_command():
 def list_tools():
     """List all available tools."""
     try:
-        agent = ReActAgent()
-        tools_info = agent.list_available_tools()
+        # For tools listing, we don't need to initialize the full agent
+        # since we're not making LLM calls
+        from tools.registry import ToolRegistry
+        registry = ToolRegistry()
+        tools_info = registry.get_all_tools_help()
         console.print(Panel(tools_info, title="Available Tools", border_style="blue"))
     
     except Exception as e:
@@ -415,12 +385,14 @@ def list_tools():
 def tool_help(tool_name):
     """Get help for a specific tool or all tools."""
     try:
-        agent = ReActAgent()
+        # For tools help, we don't need to initialize the full agent
+        from tools.registry import ToolRegistry
+        registry = ToolRegistry()
         
         if tool_name:
-            help_text = agent.get_tool_help(tool_name)
+            help_text = registry.get_tool_help(tool_name)
         else:
-            help_text = agent.list_available_tools()
+            help_text = registry.get_all_tools_help()
         
         console.print(Panel(help_text, title=f"Tool Help: {tool_name or 'All Tools'}", border_style="blue"))
     

@@ -21,7 +21,7 @@ def cli(ctx, config):
     """
     Code Agent - A ReAct-based AI assistant with filesystem tools.
     
-    Uses Ollama models to provide intelligent code assistance with the ability
+    Uses OpenAI models to provide intelligent code assistance with the ability
     to read, write, and modify files through a reasoning and acting approach.
     """
     # Store config path in context for subcommands
