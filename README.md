@@ -1,6 +1,6 @@
 # Code Agent
 
-A ReAct-based AI code assistant that can interact with the filesystem using Ollama models.
+A ReAct-based AI code assistant that can interact with the filesystem using OpenAI models.
 
 ## Features
 
