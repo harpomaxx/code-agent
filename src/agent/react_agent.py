@@ -366,11 +366,22 @@ class ReActAgent:
             self.progress_callback("WARNING", "LLM response contains hallucinated observation")
         
         # Look for Action: and Action Input: patterns
+        # Handle responses with planning context by focusing on the relevant section
+        text_to_parse = text
+        if "Current Subtask:" in text:
+            # Extract everything from "Thought:" onwards if present, otherwise from "Action:"
+            thought_match = re.search(r"(Thought:.*)", text, re.IGNORECASE | re.DOTALL)
+            action_start = re.search(r"(Action:.*)", text, re.IGNORECASE | re.DOTALL)
+            if thought_match:
+                text_to_parse = thought_match.group(1)
+            elif action_start:
+                text_to_parse = action_start.group(1)
+
         action_pattern = r"Action:\s*([^\n]+)"
         input_pattern = r"Action Input:\s*({.*?})"
         
-        action_match = re.search(action_pattern, text, re.IGNORECASE)
-        input_match = re.search(input_pattern, text, re.IGNORECASE | re.DOTALL)
+        action_match = re.search(action_pattern, text_to_parse, re.IGNORECASE)
+        input_match = re.search(input_pattern, text_to_parse, re.IGNORECASE | re.DOTALL)
         
         if not action_match:
             return None
@@ -386,13 +397,57 @@ class ReActAgent:
         try:
             if input_match:
                 action_input_str = input_match.group(1).strip()
-                parameters = json.loads(action_input_str)
+                # If initial parsing fails due to nested braces, try extracting balanced JSON
+                try:
+                    parameters = json.loads(action_input_str)
+                except json.JSONDecodeError:
+                    balanced_json = self._extract_balanced_json(text_to_parse)
+                    if balanced_json:
+                        parameters = json.loads(balanced_json)
+                    else:
+                        return None
             else:
                 parameters = {}
         except json.JSONDecodeError:
             return None
         
         return ToolAction(tool_name=tool_name, parameters=parameters)
+    
+    def _extract_balanced_json(self, text: str) -> Optional[str]:
+        """Extract JSON with proper brace balancing for nested content."""
+        # Find the start of Action Input
+        start_match = re.search(r"Action Input:\s*\{", text, re.IGNORECASE)
+        if not start_match:
+            return None
+        
+        start_pos = start_match.end() - 1  # Position of the opening brace
+        brace_count = 0
+        in_string = False
+        escape_next = False
+        
+        for i, char in enumerate(text[start_pos:], start_pos):
+            if escape_next:
+                escape_next = False
+                continue
+                
+            if char == '\\':
+                escape_next = True
+                continue
+                
+            if char == '"' and not escape_next:
+                in_string = not in_string
+                continue
+                
+            if not in_string:
+                if char == '{':
+                    brace_count += 1
+                elif char == '}':
+                    brace_count -= 1
+                    if brace_count == 0:
+                        # Found the matching closing brace
+                        return text[start_pos:i+1]
+        
+        return None
     
     def _contains_hallucinated_observation(self, text: str) -> bool:
         """Check if the LLM response contains a hallucinated observation."""
