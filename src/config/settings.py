@@ -6,11 +6,13 @@ from typing import Optional, Dict, Any
 from pydantic import BaseModel, Field
 
 
-class OllamaConfig(BaseModel):
-    """Configuration for Ollama client."""
-    host: str = Field(default="http://localhost:11434", description="Ollama server host")
+class LLMConfig(BaseModel):
+    """Configuration for LLM client."""
+    provider: str = Field(default="openai", description="LLM provider (openai, custom)")
+    api_key: Optional[str] = Field(default=None, description="API key for the provider")
+    base_url: Optional[str] = Field(default=None, description="Base URL for custom providers")
     timeout: int = Field(default=30, description="Request timeout in seconds")
-    default_model: str = Field(default="llama3.1", description="Default model to use")
+    default_model: str = Field(default="gpt-4o-mini", description="Default model to use")
 
 
 class LoggingConfig(BaseModel):
@@ -30,7 +32,7 @@ class AgentConfig(BaseModel):
 
 class AppConfig(BaseModel):
     """Main application configuration."""
-    ollama: OllamaConfig = Field(default_factory=OllamaConfig)
+    llm: LLMConfig = Field(default_factory=LLMConfig)
     agent: AgentConfig = Field(default_factory=AgentConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     
@@ -38,10 +40,12 @@ class AppConfig(BaseModel):
     def from_env(cls) -> "AppConfig":
         """Create configuration from environment variables."""
         return cls(
-            ollama=OllamaConfig(
-                host=os.getenv("OLLAMA_HOST", "http://localhost:11434"),
-                timeout=int(os.getenv("OLLAMA_TIMEOUT", "30")),
-                default_model=os.getenv("OLLAMA_DEFAULT_MODEL", "llama3.1")
+            llm=LLMConfig(
+                provider=os.getenv("LLM_PROVIDER", "openai"),
+                api_key=os.getenv("LLM_API_KEY"),
+                base_url=os.getenv("LLM_BASE_URL"),
+                timeout=int(os.getenv("LLM_TIMEOUT", "30")),
+                default_model=os.getenv("LLM_DEFAULT_MODEL", "gpt-4o-mini")
             ),
             agent=AgentConfig(
                 max_iterations=int(os.getenv("AGENT_MAX_ITERATIONS", "10")),
@@ -69,7 +73,7 @@ class AppConfig(BaseModel):
         config_data = cls._merge_with_env(yaml_data)
         
         return cls(
-            ollama=OllamaConfig(**config_data.get("ollama", {})),
+            llm=LLMConfig(**config_data.get("llm", {})),
             agent=AgentConfig(**config_data.get("agent", {})),
             logging=LoggingConfig(**config_data.get("logging", {}))
         )
@@ -79,10 +83,12 @@ class AppConfig(BaseModel):
         """Merge YAML data with environment variables (env takes precedence)."""
         # Get environment overrides
         env_overrides = {
-            "ollama": {
-                "host": os.getenv("OLLAMA_HOST"),
-                "timeout": int(os.getenv("OLLAMA_TIMEOUT")) if os.getenv("OLLAMA_TIMEOUT") else None,
-                "default_model": os.getenv("OLLAMA_DEFAULT_MODEL")
+            "llm": {
+                "provider": os.getenv("LLM_PROVIDER"),
+                "api_key": os.getenv("LLM_API_KEY"),
+                "base_url": os.getenv("LLM_BASE_URL"),
+                "timeout": int(os.getenv("LLM_TIMEOUT")) if os.getenv("LLM_TIMEOUT") else None,
+                "default_model": os.getenv("LLM_DEFAULT_MODEL")
             },
             "agent": {
                 "max_iterations": int(os.getenv("AGENT_MAX_ITERATIONS")) if os.getenv("AGENT_MAX_ITERATIONS") else None,

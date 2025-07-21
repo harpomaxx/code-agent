@@ -1,16 +1,28 @@
 # Example configuration file for code-agent
 # Copy this file to config.yaml and modify as needed
 
-# Ollama configuration
-ollama:
-  # Ollama server host
-  host: "http://localhost:11434"
+# LLM configuration
+llm:
+  # LLM provider (openai, custom)
+  provider: "openai"
+  
+  # API key for the provider
+  # You can also set this via the LLM_API_KEY environment variable
+  api_key: "your-openai-api-key-here"
+  
+  # Base URL for custom providers (optional)
+  # Leave null for OpenAI, set to custom endpoint for other providers
+  # Examples:
+  # - "https://api.openai.com/v1" (OpenAI - default)
+  # - "https://api.anthropic.com/v1" (Anthropic Claude)
+  # - "http://localhost:8000/v1" (local server)
+  base_url: "https://api.openai.com/v1" 
   
   # Request timeout in seconds
   timeout: 30
   
   # Default model to use
-  default_model: "qwen2.5:3b"
+  default_model: "gpt-4o-mini"
 
 # ReAct agent configuration
 agent:

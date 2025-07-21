@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a ReAct-based code agent with Ollama integration that provides intelligent file system operations through a CLI interface. The agent uses the Reasoning + Acting methodology to break down tasks and execute them step by step.
+This is a ReAct-based code agent with OpenAI API integration that provides intelligent file system operations through a CLI interface. The agent uses the Reasoning + Acting methodology to break down tasks and execute them step by step.
 
 ### Key Features
 
@@ -59,19 +59,17 @@ python setup.py install
 
 ### Interactive Chat
 ```bash
-code-agent chat --model llama3.2 --host http://localhost:11434
+code-agent chat --model gpt-4o-mini --api-key YOUR_API_KEY
 ```
 
 ### Single Query
 ```bash
-code-agent ask "Create a Python file with hello world"
+code-agent ask "Create a Python file with hello world" --model gpt-4o-mini
 ```
 
 ### Model Management
 ```bash
-code-agent models list
-code-agent models pull llama3.2
-code-agent models delete unwanted-model
+code-agent models list --api-key YOUR_API_KEY
 ```
 
 ### Tool Information
@@ -95,9 +93,9 @@ code-agent tools help filesystem
    - Tracks subtask progress and completion
    - Provides task plan parsing and status management
 
-3. **Ollama Client** (`src/agent/ollama_client.py`)
-   - Wraps official ollama library with retry logic
-   - Handles model management and communication
+3. **OpenAI Client** (`src/agent/openai_client.py`)
+   - Wraps official OpenAI library with retry logic
+   - Handles model communication and API calls
    - Provides error handling and connection management
    - **FIXED**: Comprehensive logging of all requests/responses
 
@@ -133,11 +131,13 @@ code-agent tools help filesystem
 The agent uses `~/.code-agent/config.yaml` for configuration:
 
 ```yaml
-# Ollama configuration
-ollama:
-  host: "http://localhost:11434"  # Ollama server host
+# LLM configuration
+llm:
+  provider: "openai"              # LLM provider (openai, custom)
+  api_key: "YOUR_API_KEY"         # API key for the provider
+  base_url: null                  # Base URL for custom providers (e.g., "https://api.custom.com/v1")
   timeout: 30                     # Request timeout in seconds
-  default_model: "llama3.2"       # Default model to use
+  default_model: "gpt-4o-mini"    # Default model to use
 
 # ReAct agent configuration  
 agent:
@@ -153,9 +153,11 @@ logging:
 ```
 
 ### Environment Variables (Override config file)
-- `OLLAMA_HOST`: Ollama server host
-- `OLLAMA_TIMEOUT`: Request timeout in seconds  
-- `OLLAMA_DEFAULT_MODEL`: Default model to use
+- `LLM_PROVIDER`: LLM provider (openai, custom)
+- `LLM_API_KEY`: API key for the provider
+- `LLM_BASE_URL`: Base URL for custom providers
+- `LLM_TIMEOUT`: Request timeout in seconds  
+- `LLM_DEFAULT_MODEL`: Default model to use
 - `AGENT_MAX_ITERATIONS`: Maximum ReAct loop iterations
 - `AGENT_MAX_RETRIES`: Maximum retries for failed requests
 - `LLM_LOGGING_ENABLED`: Enable/disable logging
@@ -168,9 +170,9 @@ logging:
 - **Rotation**: Automatic file rotation when size limit reached
 
 ### Prerequisites
-- Ollama installed and running
-- At least one language model pulled (e.g., llama3.2, qwen2.5-coder:7b-64K)
+- OpenAI API key or compatible API endpoint
 - Python 3.8 or higher
+- Access to OpenAI models (e.g., gpt-4o-mini, gpt-4o, etc.)
 
 ## Development
 
@@ -318,7 +320,7 @@ The agent follows this enhanced pattern:
 
 ## Dependencies
 
-- `ollama>=0.5.1`: Official Ollama Python client
+- `openai>=1.0.0`: Official OpenAI Python client
 - `click>=8.0.0`: CLI framework
 - `pydantic>=2.0.0`: Data validation and schemas
 - `rich>=13.0.0`: Terminal formatting and UI
